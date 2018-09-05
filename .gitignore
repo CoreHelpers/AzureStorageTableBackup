@@ -2,3 +2,4 @@
 backup.runner/bin
 backup.runner/obj
 *.user
+publish

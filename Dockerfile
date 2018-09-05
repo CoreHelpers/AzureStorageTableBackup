@@ -9,4 +9,10 @@ RUN apt-get update && apt-get install -y build-essential libssl-dev curl procps 
   && apt-get -y autoclean
 
 # Create app directory
-WORKDIR /usr/src/app.backup
+WORKDIR /usr/src/app.backup.runner
+
+# Copy everything
+COPY ./ .
+
+# execute the command
+CMD [ "dotnet", "backup.runner.dll" ]
