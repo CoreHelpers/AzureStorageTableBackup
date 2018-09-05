@@ -18,6 +18,7 @@ namespace backup.runner
             ValidateParameter("SRC_ACCOUNT_KEY");
             ValidateParameter("TGT_ACCOUNT_KEY");
             ValidateParameter("TGT_ACCOUNT_KEY");
+            ValidateParameter("TGT_ACCOUNT_CONTAINER");
 
             var srcAccountName = Environment.GetEnvironmentVariable("SRC_ACCOUNT_NAME");
             var srcAccountKey = Environment.GetEnvironmentVariable("SRC_ACCOUNT_KEY");
@@ -25,6 +26,7 @@ namespace backup.runner
 
             var tgtAccountName = Environment.GetEnvironmentVariable("TGT_ACCOUNT_NAME");
             var tgtAccountKey = Environment.GetEnvironmentVariable("TGT_ACCOUNT_KEY");
+            var tgtAccountContainer = Environment.GetEnvironmentVariable("TGT_ACCOUNT_CONTAINER");
             var tgtAccountEndpointSuffix = Environment.GetEnvironmentVariable("TGT_ACCOUNT_ENDPOINT_SUFFIX");
 
             // Information 
@@ -43,9 +45,15 @@ namespace backup.runner
                 // instantiate the backup service 
                 var backupService = new BackupService(storageContext, backupStorageAccount, logger);
 
+                // build the backup prefix 
+                var prefix = DateTime.Now.ToString("yyyy-mm-dd") + "-" + Guid.NewGuid().ToString();
+
                 // exceute the backup 
-                backupService.Backup("xx", null).Wait();
+                backupService.Backup(tgtAccountContainer, prefix).Wait();
             }
+
+            // Thank you 
+            Console.WriteLine("Backup is finished");
         }
 
         static void ValidateParameter(string variable) {
