@@ -1,3 +1,9 @@
+# Status
+
+| Build | Status | 
+|---|---|
+| CI (last changed branch) |[![Build Status](https://applimit.visualstudio.com/CoreHelpers/_apis/build/status/AzureStorageTableBackup/AzureStorageTableBackup-CI)](https://applimit.visualstudio.com/CoreHelpers/_build/latest?definitionId=28) |
+
 # Pull the pre-compiled container
 
 Step 1: pull the container from public repository
