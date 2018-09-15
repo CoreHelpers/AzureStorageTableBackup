@@ -4,6 +4,7 @@
 |---|---|
 | CI (last changed branch) |[![Build Status](https://applimit.visualstudio.com/CoreHelpers/_apis/build/status/AzureStorageTableBackup/AzureStorageTableBackup-CI)](https://applimit.visualstudio.com/CoreHelpers/_build/latest?definitionId=28) |
 | CD (push to Docker) | [![Build Status](https://applimit.visualstudio.com/CoreHelpers/_apis/build/status/AzureStorageTableBackup/AzureStorageTableBackup-CD)](https://applimit.visualstudio.com/CoreHelpers/_build/latest?definitionId=29) |
+| DockerHub | https://hub.docker.com/r/corehelpers/azurebackup/ |
 
 # Execute Backup with the pre-compiled container
 
