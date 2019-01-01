@@ -89,7 +89,7 @@ namespace backup.runner
                     var backupService = new BackupService(storageContext, backupStorageAccount, logger);
 
                     // build the backup prefix 
-                    var prefix = DateTime.Now.ToString("yyyy-mm-dd") + "-" + Guid.NewGuid().ToString();
+                    var prefix = DateTime.Now.ToString("yyyy-MM-dd") + "-" + Guid.NewGuid().ToString();
 
                     // log
                     Console.WriteLine($"          Backup Prefix: {prefix}");
