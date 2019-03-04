@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using CoreHelpers.WindowsAzure.Storage.Table;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Auth;
@@ -72,9 +73,29 @@ namespace backup.runner
 
                 // load the local parameters
                 var tgtAccountContainer = Environment.GetEnvironmentVariable("TGT_ACCOUNT_CONTAINER");
+                var srcExcludeTables    = Environment.GetEnvironmentVariable("SRC_EXCLUDE_TABLES");
+
+                // process exclude tables
+                var excludeTablesList = new List<string>();
+                if (!String.IsNullOrEmpty(srcExcludeTables))
+                    excludeTablesList = new List<string>(srcExcludeTables.Split(','));
 
                 // log
                 Console.WriteLine($"        Operations Mode: Backup");
+
+                if (excludeTablesList.Count == 0)
+                {
+                    Console.WriteLine($"        Excluded Tables: n/a");
+                }
+                else
+                {
+                    for (int i = 0; i < excludeTablesList.Count; i++) {
+                        if (i == 0) 
+                            Console.WriteLine($"        Excluded Tables: {excludeTablesList[i]}");
+                        else
+                            Console.WriteLine($"                         {excludeTablesList[i]}");
+                    }
+                }
 
                 // instantiate the logger
                 var logger = new BackupStorageLogger();
@@ -95,7 +116,7 @@ namespace backup.runner
                     Console.WriteLine($"          Backup Prefix: {prefix}");
 
                     // exceute the backup 
-                    backupService.Backup(tgtAccountContainer, prefix).Wait();
+                    backupService.Backup(tgtAccountContainer, prefix, excludeTablesList.ToArray()).Wait();
                 }
 
                 // Thank you 
