@@ -41,7 +41,8 @@ corehelpers/azurebackup
 | SRC_ACCOUNT_KEY | Yes | n/a | Defines the storage account key |
 | SRC_ACCOUNT_CONTAINER | Yes when restore | n/a | Defines the container name the restore should load from |
 | SRC_BACKUP_ID | Yes when restore | n/a | Defines the backup id which is the file prefix generated during backup which is used for restore |
-| SRC_ACCOUNT_ENDPOINT_SUFFIX | No | empty | Allows to send endpoint suffixes for special Azure regiosn |
+| SRC_ACCOUNT_ENDPOINT_SUFFIX | No | empty | Allows to send endpoint suffixes for special Azure regions |
+| SRC_EXCLUDE_TABLES | No | empty | Allows to define tables which are excluded from backup |
 | TGT_ACCOUNT_NAME | Yes | n/a | Defines the account where the system should backup or restore to |
 | TGT_ACCOUNT_KEY | Yes | n/a | Defines the storage account key |
 | TGT_ACCOUNT_CONTAINER | Yes when backup | n/a | Defines the container name the backup should store to |
