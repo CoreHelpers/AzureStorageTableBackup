@@ -6,6 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CoreHelpers.WindowsAzure.Storage.Table" Version="2.5.84" />
+    <PackageReference Include="CoreHelpers.WindowsAzure.Storage.Table" Version="2.5.85" />
   </ItemGroup>
 </Project>
