@@ -1,7 +1,8 @@
-
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "backup.runner", "backup.runner\backup.runner.csproj", "{801EF045-2A9F-4280-B627-A5480654AD78}"
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28729.10
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "backup.runner", "backup.runner\backup.runner.csproj", "{801EF045-2A9F-4280-B627-A5480654AD78}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,5 +14,11 @@ Global
 		{801EF045-2A9F-4280-B627-A5480654AD78}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{801EF045-2A9F-4280-B627-A5480654AD78}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{801EF045-2A9F-4280-B627-A5480654AD78}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2FC859D2-AD68-4869-86D4-588B087C53BD}
 	EndGlobalSection
 EndGlobal
