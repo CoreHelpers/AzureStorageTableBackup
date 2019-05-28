@@ -63,7 +63,7 @@ corehelpers/azurebackup
 |---|---|---|---|
 | MODE | No | Backup | Defines if the container runs in backup or restore mode |
 | STORAGE_TYPE | No | Table | Defines if the backup runs for blobs or tables |
-| COMPRESS | No | True | Defines if the blob data will be compressed before uploading (table data will always be compressed) |
+| COMPRESS | No | True | Defines if the blob data will be compressed before uploading again (table data will always be compressed). If False, server side copy is used. |
 | TRD_COUNT | No | 10 | ParallelOperationThreadCount: Gets or sets the number of blocks that may be simultaneously uploaded (blobs only).|
 | UPL_THRESHOLD | No | 32 MiB | SingleBlobUploadThresholdInBytes: Gets or sets the maximum size of a blob in bytes that may be uploaded as a single blob. Ignored if TRD_COUNT greater than 1 (blobs only).|
 | SRC_ACCOUNT_NAME | Yes | n/a | Defines the account where the system should backup or restore from |
