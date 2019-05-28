@@ -22,8 +22,20 @@ namespace backup.runner
         private readonly BlobRequestOptions _options;
         private readonly IStorageLogger _logger;
 
-        public BlobService(CloudStorageAccount srcStorageAccount, CloudStorageAccount tgtStorageAccount, BlobRequestOptions options, IStorageLogger logger)
+        /// <summary>
+        /// Implements backup and restore functions for blobs.
+        /// </summary>
+        /// <param name="srcStorageAccount"></param>
+        /// <param name="tgtStorageAccount"></param>
+        /// <param name="options"></param>
+        /// <param name="logger"></param>
+        public BlobService(
+            CloudStorageAccount srcStorageAccount,
+            CloudStorageAccount tgtStorageAccount,
+            BlobRequestOptions options,
+            IStorageLogger logger)
         {
+            // set the contexts
             _srcBlobContext = new BlobContext(srcStorageAccount);
             _tgtBlobContext = new BlobContext(tgtStorageAccount);
 
@@ -39,15 +51,19 @@ namespace backup.runner
         }
 
         /// <summary>
-        /// Restores all the blob container and blobs from the source blob container
+        /// Restores all the blob container/blobs from the source blob container
         /// containing the backup.
         /// </summary>
-        /// <param name="srcBlobContainerNameToRestoreFrom"></param>
-        /// <param name="backupId">Id of the backup to restore.</param>
-        /// <param name="areBackupBlobsCompressed"></param>
+        /// <param name="srcBlobContainerNameToRestoreFrom">Name of the backup container</param>
+        /// <param name="backupId">Id of the backup to restore. Format is yyyy-mm-dd-guid.</param>
+        /// <param name="areBackupBlobsCompressed">True if the backup used compression.</param>
         /// <param name="cToken"></param>
         /// <returns></returns>
-        public async Task Restore(string srcBlobContainerNameToRestoreFrom, string backupId, bool areBackupBlobsCompressed = false, CancellationToken cToken = default)
+        public async Task Restore(
+            string srcBlobContainerNameToRestoreFrom,
+            string backupId,
+            bool areBackupBlobsCompressed = false,
+            CancellationToken cToken = default)
         {
             try
             {
@@ -59,27 +75,30 @@ namespace backup.runner
                 do
                 {
                     // list all blobs in the backup container
-                    var backupBlobList = await srcContainer
-                        .ListBlobsSegmentedAsync
-                        (
-                            backupId,
+                    var backupBlobList = await srcContainer.ListBlobsSegmentedAsync(
+                            backupId, // load only blobs from the desired backup
                             useFlatBlobListing: true, // virtual file path prefixes the blobs
                             BlobListingDetails.All,
                             maxResults: 1000, // get 100 blobs at maximum per segment
                             continuation,
                             null,
                             null,
-                            cToken
-                        )
+                            cToken)
                         .ConfigureAwait(false);
 
                     continuation = backupBlobList.ContinuationToken;
+                    // cast IListBlobItem to CloudBlobs
                     var srcBlobs = backupBlobList.Results.Select(b => b as CloudBlob);
 
                     _logger.LogInformation($"Loaded #{srcBlobs.Count()} blobs from backup with ID {backupId}.");
 
-                    // start to restore the container
-                    await RestoreBlobsInSegmentFromSourceBlobsToTargetBlobsAsync(srcBlobs, backupId, areBackupBlobsCompressed, cToken).ConfigureAwait(false);
+                    // start to restore the container with the current segment of backup blobs
+                    await RestoreBlobsInSegmentFromSourceBlobsToTargetBlobsAsync(
+                            srcBlobs,
+                            backupId,
+                            areBackupBlobsCompressed,
+                            cToken)
+                        .ConfigureAwait(false);
                 }
                 while (continuation != null);
 
@@ -92,49 +111,71 @@ namespace backup.runner
         }
 
         /// <summary>
-        /// Restores all blobs in the segment by copying the to the target storage account and container.
+        /// Restores all blobs in the segment by copying the blobs to the target storage account and container.
         /// </summary>
-        /// <param name="srcBlobs"></param>
-        /// <param name="backupId"></param>
-        /// <param name="areBackupBlobsCompressed"></param>
+        /// <param name="srcBlobs">All the blobs from the backup source container</param>
+        /// <param name="backupId">Id of the backup to restore. Format is yyyy-mm-dd-guid.</param>
+        /// <param name="areBackupBlobsCompressed">True if the backup used compression.</param>
         /// <param name="cToken"></param>
         /// <returns></returns>
-        private async Task RestoreBlobsInSegmentFromSourceBlobsToTargetBlobsAsync(IEnumerable<CloudBlob> srcBlobs, string backupId, bool areBackupBlobsCompressed, CancellationToken cToken = default)
+        private async Task RestoreBlobsInSegmentFromSourceBlobsToTargetBlobsAsync(
+            IEnumerable<CloudBlob> srcBlobs,
+            string backupId,
+            bool areBackupBlobsCompressed,
+            CancellationToken cToken = default)
         {
-            IEnumerable<CloudBlobContainer> tgtBlobContainers = await CreateTgtBlobContainerFromBlobsAsync(srcBlobs).ConfigureAwait(false);
+            // create all original container from the source blobs
+            IEnumerable<CloudBlobContainer> tgtBlobContainers =
+                await CreateTgtBlobContainersFromBlobsAsync(srcBlobs).ConfigureAwait(false);
 
             _logger.LogInformation($"Created #{tgtBlobContainers.Count()} blob containers in total.");
 
+            // loop through each container
             foreach (CloudBlobContainer tgtBlobContainer in tgtBlobContainers)
             {
-                // select only blobs in tgt container
+                // select only blobs that belong to the current selected container
                 var srcBlobsInContainer = srcBlobs.Where(s => s.Name.StartsWith(backupId + "/" + tgtBlobContainer.Name));
                 if (areBackupBlobsCompressed) // if backup blobs are compressed, decompress them before the copy happens
                 {
                     // if uploading compressed blobs, do it one-by-one
-                    // Using ParallelForEachAsync here can cause a BadRequest 400 (InvalidBlockId)
-                    // my assumption is that it interferes with the ParallelOperationThreadCount option
+                    //
+                    // using ParallelForEachAsync here can cause a BadRequest 400 (InvalidBlockId), because
+                    // 2 tasks are trying to modify the same block from the blob
+                    //
+                    // note: my assumption is that it interferes with the ParallelOperationThreadCount option
+                    // todo: Find a solution to maximize throughput
                     foreach (CloudBlob srcBlob in srcBlobsInContainer)
                     {
-                        await CopySourceBlobToTargetBlobUsingGzipStreamAsync(srcBlob, tgtBlobContainer, backupId, isBackup: false, cToken).ConfigureAwait(false);
+                        // compress each blob and copy it to the target container
+                        await CopySourceBlobToTargetBlobUsingGzipStreamAsync(
+                                srcBlob,
+                                tgtBlobContainer,
+                                backupId,
+                                isBackup: false, // restore mode
+                                cToken)
+                            .ConfigureAwait(false);
                     }
                 }
                 else // if backup blobs are not compressed then start the copy
                 {
                     // max 100 start cooy tasks & monitoring status of the copy
-                    await srcBlobsInContainer.ParallelForEachAsync
-                        (
-                            (srcBlob) => StartCopySourceBlobToTargetBlobServerSideAsync(srcBlob, tgtBlobContainer, backupId, isBackup: false, cToken),
+                    await srcBlobsInContainer.ParallelForEachAsync(
+                            (srcBlob) =>
+                                StartServerSideCopySourceBlobToTargetBlobAsync(
+                                    srcBlob,
+                                    tgtBlobContainer,
+                                    backupId,
+                                    isBackup: false, // restore mode
+                                    cToken),
                             maxDegreeOfParalellism: 100,
-                            cToken
-                        )
+                            cToken)
                         .ConfigureAwait(false);
                 }
 
                 _logger.LogInformation($"Restored #{srcBlobsInContainer.Count()} blobs in container {tgtBlobContainer.Name}.");
 
                 // decompressing the blobs from the backup can take a lot of memory.
-                // to avoid out of memory exceptions: force a gargabe collection
+                // to avoid out of memory exceptions: force a gargabe collection after each container restore
                 if (areBackupBlobsCompressed) GC.Collect();
             }
         }
@@ -144,15 +185,15 @@ namespace backup.runner
         /// </summary>
         /// <param name="srcBlobs"></param>
         /// <returns></returns>
-        private async Task<IEnumerable<CloudBlobContainer>> CreateTgtBlobContainerFromBlobsAsync(IEnumerable<CloudBlob> srcBlobs)
+        private async Task<IEnumerable<CloudBlobContainer>> CreateTgtBlobContainersFromBlobsAsync(IEnumerable<CloudBlob> srcBlobs)
         {
             // get the container names
             IList<string> distinctTgtBlobContainerNames = new List<string>();
             foreach (CloudBlob srcBlob in srcBlobs)
             {
-                // we need to determine the containername with the backup blob name
+                // we need to determine the container name from the backup blob name
                 // the name schema for a backup blob is:
-                // yyyy-mm-dd-backupid/original-container-name/virtual/file/path/blobname
+                // yyyy-mm-dd-guid/original-container-name/virtual/file/path/blobname
                 string targetContainerName = srcBlob.Name.Split("/")[1];
                 if (!distinctTgtBlobContainerNames.Contains(targetContainerName))
                 {
@@ -162,14 +203,16 @@ namespace backup.runner
             }
 
             ConcurrentBag<CloudBlobContainer> distinctTgtBlobContainer = new ConcurrentBag<CloudBlobContainer>();
-
-            // create the container
+            // create the container using a parallel for each
             await distinctTgtBlobContainerNames.ParallelForEachAsync
                     (
                         async (tgtBlobContainerName) =>
                         {
-                            CloudBlobContainer tgtBlobContainer = await _tgtBlobContext.CreateContainerIfNotExistsAsync(tgtBlobContainerName).ConfigureAwait(false);
+                            CloudBlobContainer tgtBlobContainer =
+                                await _tgtBlobContext.CreateContainerIfNotExistsAsync(tgtBlobContainerName).ConfigureAwait(false);
+
                             _logger.LogInformation($"Created blob container {tgtBlobContainer.Name}.");
+
                             distinctTgtBlobContainer.Add(tgtBlobContainer);
                         },
                         maxDegreeOfParalellism: 0 // default means hardware based auto config
@@ -181,16 +224,21 @@ namespace backup.runner
         }
 
         /// <summary>
-        /// Backups all blobs from the source account into the target blob container in
+        /// Backup all blob containers/blobs from the source account to the target blob container in
         /// the target account.
         /// </summary>
         /// <param name="targetBlobContainerName">the backup container name</param>
-        /// <param name="virtualFilePath">prefix of the form yyyy-mm-dd-backupid </param>
-        /// <param name="excludedBlobContainer"></param>
+        /// <param name="virtualFilePath">prefix of the form yyyy-mm-dd-guid </param>
+        /// <param name="excludedBlobContainers">blob container to exclude</param>
         /// <param name="compress"></param>
         /// <param name="ctoken"></param>
         /// <returns></returns>
-        public async Task Backup(string targetBlobContainerName, string virtualFilePath, IEnumerable<string> excludedBlobContainer, bool compress = false, CancellationToken cToken = default)
+        public async Task Backup(
+            string targetBlobContainerName,
+            string virtualFilePath,
+            IEnumerable<string> excludedBlobContainers,
+            bool compress = false,
+            CancellationToken cToken = default)
         {
             try
             {
@@ -199,39 +247,37 @@ namespace backup.runner
                 {
                     var containerResultSegment = await _srcBlobContext
                         .BlobClient
-                        .ListContainersSegmentedAsync
-                        (
+                        .ListContainersSegmentedAsync(
                             string.Empty, // no prefix
                             ContainerListingDetails.None,
-                            100, // max of 100 segments returned
+                            100, // max of 100 container segments returned
                             continuationToken,
                             null,
                             null,
-                            cToken
-                        )
+                            cToken)
                         .ConfigureAwait(false);
 
                     continuationToken = containerResultSegment.ContinuationToken;
                     var srcContainersInSegment = containerResultSegment.Results;
 
                     // exclude blob containers from backup
-                    srcContainersInSegment = srcContainersInSegment.Where(c => !excludedBlobContainer.Any(eb => c.Name == eb));
+                    srcContainersInSegment = srcContainersInSegment.Where(c => !excludedBlobContainers.Any(eb => c.Name == eb));
 
                     _logger.LogInformation($"Loaded #{srcContainersInSegment.Count()} blob containers to create a backup from.");
 
                     // copy the blobs from each src container to the backup container
+                    // todo: can be improved with a parallel foreach
                     foreach (var srcBlobContainer in srcContainersInSegment)
                     {
                         _logger.LogInformation($"Start to backup container {srcBlobContainer.Name}.");
 
-                        await CopyBlobsToTargetContainerAsync
-                            (
+                        // start copying blobs
+                        await CopyBlobsToTargetContainerAsync(
                                 targetBlobContainerName,
                                 srcBlobContainer,
                                 virtualFilePath,
                                 compress,
-                                cToken
-                            )
+                                cToken)
                             .ConfigureAwait(false);
                     }
                 }
@@ -250,7 +296,7 @@ namespace backup.runner
         /// </summary>
         /// <param name="tgtBlobContainerName"></param>
         /// <param name="srcContainer"></param>
-        /// <param name="virtualFilePath">yyyy-mm-dd-backupid</param>
+        /// <param name="virtualFilePath">yyyy-mm-dd-guid</param>
         /// <param name="compress"></param>
         /// <param name="cToken"></param>
         /// <returns></returns>
@@ -262,51 +308,54 @@ namespace backup.runner
             CancellationToken cToken = default)
         {
             // create a virtual directory for each container that is copied
+            // use orignal container name as suffix
             virtualFilePath = virtualFilePath + "/" + srcContainer.Name;
 
             // get the target container
-            CloudBlobContainer tgtContainer = await _tgtBlobContext.CreateContainerIfNotExistsAsync(tgtBlobContainerName).ConfigureAwait(false);
+            CloudBlobContainer tgtContainer =
+                await _tgtBlobContext.CreateContainerIfNotExistsAsync(tgtBlobContainerName).ConfigureAwait(false);
+
             BlobContinuationToken continuation = default;
             do
             {
                 // load the blobs from the source container
                 var blobListSegment = await srcContainer
-                    .ListBlobsSegmentedAsync
-                    (
+                    .ListBlobsSegmentedAsync(
                         null,
-                        useFlatBlobListing: true, // virtual file path is prefixes the blobs
+                        useFlatBlobListing: true, // no virtual directories needed
                         BlobListingDetails.All,
                         maxResults: 1000, // get 100 blobs at maximum per segment
                         continuation,
                         null,
                         null,
-                        cToken
-                    )
+                        cToken)
                     .ConfigureAwait(false);
 
                 continuation = blobListSegment.ContinuationToken;
+                // cast from IListBlobItem to cloudblob
                 var srcBlobItems = blobListSegment.Results.Select(b => b as CloudBlob);
 
                 if (compress)
-                    _logger.LogInformation($"Loaded #{srcBlobItems.Count()} blobs from container {srcContainer.Name}. Upload compressed blobs to target container {tgtContainer.Name}.");
+                    _logger.LogInformation($"Loaded #{srcBlobItems.Count()} blobs from container {srcContainer.Name}." +
+                                           $" Upload compressed blobs to target container {tgtContainer.Name}.");
                 else
-                    _logger.LogInformation($"Loaded #{srcBlobItems.Count()} blobs from container {srcContainer.Name}. Start copying blobs to target container {tgtContainer.Name}.");
+                    _logger.LogInformation($"Loaded #{srcBlobItems.Count()} blobs from container {srcContainer.Name}." +
+                                           $" Start copying blobs to target container {tgtContainer.Name}.");
 
-                await CopyBlobsFromSegementToTargetContainerAsync
-                    (
+                // copy blobs in loaded segment to target container
+                await CopyBlobsInSegementToTargetContainerAsync(
                         srcBlobItems,
                         tgtContainer,
                         virtualFilePath,
                         compress,
-                        cToken
-                    )
+                        cToken)
                     .ConfigureAwait(false);
             }
             while (continuation != null);
         }
 
         /// <summary>
-        /// Copies the source blobs to the target blobs.
+        /// Copies the source blobs in the segment to the target blobs.
         /// </summary>
         /// <param name="srcBlobItems"></param>
         /// <param name="tgtContainer"></param>
@@ -314,7 +363,7 @@ namespace backup.runner
         /// <param name="compress"></param>
         /// <param name="ctoken"></param>
         /// <returns></returns>
-        private async Task CopyBlobsFromSegementToTargetContainerAsync(
+        private async Task CopyBlobsInSegementToTargetContainerAsync(
             IEnumerable<CloudBlob> srcBlobItems,
             CloudBlobContainer tgtContainer,
             string virtualFilePath,
@@ -323,10 +372,22 @@ namespace backup.runner
         {
             if (compress)
             {
-                // if compress we copy blobs one by one
+                // if uploading compressed blobs, do it one-by-one
+                //
+                // using ParallelForEachAsync here can cause a BadRequest 400 (InvalidBlockId), because
+                // 2 tasks are trying to modify the same block from the blob
+                //
+                // note: my assumption is that it interferes with the ParallelOperationThreadCount option
+                // todo: Find a solution to maximize throughput
                 foreach (CloudBlob srcBlob in srcBlobItems)
                 {
-                    await CopySourceBlobToTargetBlobUsingGzipStreamAsync(srcBlob, tgtContainer, virtualFilePath, isBackup: true, ctoken).ConfigureAwait(false);
+                    await CopySourceBlobToTargetBlobUsingGzipStreamAsync(
+                            srcBlob,
+                            tgtContainer,
+                            virtualFilePath,
+                            isBackup: true,
+                            ctoken)
+                        .ConfigureAwait(false);
                 }
             }
             else
@@ -334,7 +395,13 @@ namespace backup.runner
                 // max 100 start cooy tasks & monitoring status of the copy
                 await srcBlobItems.ParallelForEachAsync
                     (
-                        (srcCloudBlob) => StartCopySourceBlobToTargetBlobServerSideAsync(srcCloudBlob, tgtContainer, virtualFilePath, isBackup: true, ctoken),
+                        (srcCloudBlob) =>
+                            StartServerSideCopySourceBlobToTargetBlobAsync(
+                                srcCloudBlob,
+                                tgtContainer,
+                                virtualFilePath,
+                                isBackup: true,
+                                ctoken),
                         maxDegreeOfParalellism: 100,
                         ctoken
                     )
@@ -344,12 +411,12 @@ namespace backup.runner
             _logger.LogInformation($"Backup of #{srcBlobItems.Count()} blobs finished.");
 
             // compressing the source blobs can take a lot of memory.
-            // to avoid out of memory exceptions: force a gargabe collection
+            // to avoid out of memory exceptions: force a gargabe collection after each segment
             if (compress) GC.Collect();
         }
 
         /// <summary>
-        /// Starts copying the source blob to the target blob on the server side.
+        /// Starts server side copying of the source blob to the target blob.
         /// </summary>
         /// <param name="srcCloudBlob"></param>
         /// <param name="tgtContainer"></param>
@@ -357,7 +424,7 @@ namespace backup.runner
         /// <param name="isBackup"></param>
         /// <param name="ctoken"></param>
         /// <returns></returns>
-        private async Task StartCopySourceBlobToTargetBlobServerSideAsync(
+        private async Task StartServerSideCopySourceBlobToTargetBlobAsync(
              CloudBlob srcCloudBlob,
              CloudBlobContainer tgtContainer,
              string virtualFilePath,
@@ -371,16 +438,7 @@ namespace backup.runner
             var srcBlobSasUri = GetSrcBlobSasUri(srcCloudBlob);
 
             // start the copy task
-            await tgtBlob.StartCopyAsync
-                (
-                    srcBlobSasUri,
-                    null,
-                    null,
-                    _options, // BlobOptions
-                    null,
-                    ctoken
-                )
-                .ConfigureAwait(false);
+            await tgtBlob.StartCopyAsync(srcBlobSasUri, null, null, _options, null, ctoken).ConfigureAwait(false);
 
             // check the status of the copy process
             while (tgtBlob.CopyState.Status == CopyStatus.Pending)
@@ -397,7 +455,7 @@ namespace backup.runner
         }
 
         /// <summary>
-        /// Get the sas blob uri with read permissions. Its valid for one day.
+        /// Get the sas blob uri with read permissions. The sas uri is valid for one day.
         /// </summary>
         /// <param name="srcBlob"></param>
         /// <returns></returns>
@@ -415,7 +473,7 @@ namespace backup.runner
 
         /// <summary>
         /// Get the target blob from a sas blob uri with read and write permissions.
-        /// Sas is valid fo 1 day.
+        /// The sas uri is valid fo 1 day.
         /// </summary>
         /// <param name="tgtContainer"></param>
         /// <param name="tgtBlobName"></param>
@@ -477,7 +535,11 @@ namespace backup.runner
         /// <param name="tgtBlobName"></param>
         /// <param name="cToken"></param>
         /// <returns></returns>
-        private async Task UploadCompressedSrcBlobToTgtBlobAsnyc(CloudBlob srcBlob, CloudBlobContainer tgtContainer, string tgtBlobName, CancellationToken cToken = default)
+        private async Task UploadCompressedSrcBlobToTgtBlobAsnyc(
+            CloudBlob srcBlob,
+            CloudBlobContainer tgtContainer,
+            string tgtBlobName,
+            CancellationToken cToken = default)
         {
             using (Stream blobStream = await srcBlob.OpenReadAsync(null, _options, null, cToken))
             using (MemoryStream streamToUplaod = new MemoryStream())
@@ -488,8 +550,8 @@ namespace backup.runner
                 streamToUplaod.Seek(0, SeekOrigin.Begin);
                 var targetBlob = tgtContainer.GetBlockBlobReference(tgtBlobName);
                 // save the original content type
-                targetBlob.Metadata["contenttype"] = string.IsNullOrWhiteSpace(srcBlob.Properties?.ContentType) 
-                    ? "application/octet-stream".ToBase64()  // azure default
+                targetBlob.Metadata["contenttype"] = string.IsNullOrWhiteSpace(srcBlob.Properties?.ContentType)
+                    ? "application/octet-stream".ToBase64()  // azure default content type
                     : srcBlob.Properties.ContentType.ToBase64();
                 await targetBlob.UploadFromStreamAsync(streamToUplaod, null, _options, null, cToken).ConfigureAwait(false);
             }
@@ -503,7 +565,11 @@ namespace backup.runner
         /// <param name="tgtBlobName"></param>
         /// <param name="cToken"></param>
         /// <returns></returns>
-        private async Task UploadDecompressedSrcBlobToTgtBlobAsnyc(CloudBlob srcBlob, CloudBlobContainer tgtContainer, string tgtBlobName, CancellationToken cToken = default)
+        private async Task UploadDecompressedSrcBlobToTgtBlobAsnyc(
+            CloudBlob srcBlob,
+            CloudBlobContainer tgtContainer,
+            string tgtBlobName,
+            CancellationToken cToken = default)
         {
             using (Stream blobStream = await srcBlob.OpenReadAsync(null, _options, null, cToken))
             using (var compressedBloblStream = new GZipStream(blobStream, CompressionMode.Decompress, leaveOpen: true))
@@ -520,7 +586,7 @@ namespace backup.runner
         }
 
         /// <summary>
-        /// Get the correct blob name depending on mode (backup or restore)
+        /// Get the target blob name depending on mode (backup or restore)
         /// </summary>
         /// <param name="isBackup"></param>
         /// <param name="srcBlobName"></param>
@@ -530,11 +596,11 @@ namespace backup.runner
         {
             return isBackup
                 ? GetBackupBlobName(srcBlobName, virtualFilePath)
-                : GetOriginalBlobName(srcBlobName, virtualFilePath); // virtualFilePath contains just the backupid
+                : GetOriginalBlobName(srcBlobName, virtualFilePath); // virtualFilePath is the backupid
         }
 
         /// <summary>
-        /// Appends or removes hte .gz extension.
+        /// Appends or removes the .gz extension.
         /// </summary>
         /// <param name="isBackup"></param>
         /// <param name="tgtBlobName"></param>
@@ -559,7 +625,7 @@ namespace backup.runner
         /// backup file path and name using the backup id.
         /// </summary>
         /// <param name="name"></param>
-        /// <param name="backupId">just the backupid</param>
+        /// <param name="backupId"></param>
         /// <returns></returns>
         private string GetOriginalBlobName(string name, string backupId) => name.Split(backupId + "/").Last().Split("/", 2)[1];
     }

@@ -150,10 +150,10 @@ namespace backup.runner
                 Console.WriteLine($"           ParallelOperationThreadCount: {parallelOperationThreadCount}");
                 Console.WriteLine($"           SingleBlobUploadThresholdInBytes: {singleBlobUploadThresholdInBytes}");
 
-                // instantiate the backup service
+                // blob service
                 var backupService = new BlobService(srcBlobStorageAccount, tgtBlobStorageAccount, blobRequestOptions, logger);
 
-                // exceute the backup
+                // execute the restore
                 await backupService.Restore(srcAccountContainer, srcBackupId, areBlobsCompressed).ConfigureAwait(false);
             }
             else if (IsBlobBackupMode(storageType, operationsMode))
@@ -195,13 +195,13 @@ namespace backup.runner
                 Console.WriteLine($"           ParallelOperationThreadCount: {parallelOperationThreadCount}");
                 Console.WriteLine($"           SingleBlobUploadThresholdInBytes: {singleBlobUploadThresholdInBytes}");
 
-                // instantiate the backup service
+                // blob service
                 var backupService = new BlobService(srcBlobStorageAccount, tgtBlobStorageAccount, blobRequestOptions, logger);
 
                 // build the backup prefix
                 var virtualFilePath = DateTime.UtcNow.ToString("yyyy-MM-dd") + "-" + Guid.NewGuid().ToString();
 
-                // exceute the backup
+                // execute the backup
                 await backupService.Backup(tgtAccountContainer, virtualFilePath, excludedBlobContainers, compressBlobs).ConfigureAwait(false);
             }
             else
