@@ -3,3 +3,4 @@ backup.runner/bin
 backup.runner/obj
 *.user
 publish
+.idea/.idea.CoreHelper.Azure.Storage.Table.Backup/.idea
