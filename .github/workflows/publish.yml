@@ -35,5 +35,5 @@ jobs:
           push: true
           build-args: |
             version=${VERSION}
-          tags: corehelpers/azurebackup:${{ VERSION }}
+          tags: corehelpers/azurebackup:${{ env.VERSION }}
         
