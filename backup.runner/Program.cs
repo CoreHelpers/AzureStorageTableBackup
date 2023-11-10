@@ -38,9 +38,12 @@ foreach (var manifestItem in manifest.Items)
         await TableBackupClient.BackupAsync(manifestItem, loggerFactory);
         
         // trigger the finished hook if needed
-        if (!String.IsNullOrEmpty(manifestItem.FinishedHook)) 
+        if (!String.IsNullOrEmpty(manifestItem.FinishedHook))
+        {
+            logger.LogInformation($"Triggering finished hook {manifestItem.FinishedHook}");
             await HookTrigger.TriggerHookAsync(manifestItem.FinishedHook);
-        
+        }
+
     } else if (manifestItem.Operation == OperationType.Restore && manifestItem.Storage == StorageType.Table)
     {
         await TableBackupClient.RestoreAsync(manifestItem, loggerFactory);
