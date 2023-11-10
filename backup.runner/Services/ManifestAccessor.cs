@@ -1,8 +1,11 @@
 using System;
 using System.IO;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using backup.runner.Extensions;
 using backup.runner.Manifest;
+using Microsoft.VisualBasic.CompilerServices;
 using Newtonsoft.Json;
 
 namespace backup.runner.Services;
@@ -19,10 +22,19 @@ internal static class ManifestAccessor
         // check if the file exists and if so parse the content
         if (File.Exists(location))
             return JsonConvert.DeserializeObject<ManifestDocument>(await File.ReadAllTextAsync(location));
-            
-        // TODO: check if the location is an url and we need to download the manifest
         
-        await Task.CompletedTask;
-        throw new NotImplementedException();
+        // check if a download is required 
+        if (location.ToLower().StartsWith("http"))
+        {
+            var httpClient = new HttpClient();
+            using var response = await httpClient.GetAsync(location);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Failed to download manifest file {response.ReasonPhrase}");
+            var jsonData = await response.Content.ReadAsStringAsync();
+            return JsonConvert.DeserializeObject<ManifestDocument>(jsonData);
+        }
+        
+        // in all other cases throw an exception
+        throw new InvalidOperationException($"Not supported manifest location {location}");
     }
 }
