@@ -9,8 +9,8 @@
 
   <ItemGroup>
     <PackageReference Include="AsyncEnumerator" Version="2.2.2" />
-    <PackageReference Include="CoreHelpers.WindowsAzure.Storage.Table" Version="6.2.0" />
-    <PackageReference Include="CoreHelpers.WindowsAzure.Storage.Table.Backup" Version="6.2.0" />
+    <PackageReference Include="CoreHelpers.WindowsAzure.Storage.Table" Version="6.3.1" />
+    <PackageReference Include="CoreHelpers.WindowsAzure.Storage.Table.Backup" Version="6.3.1" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
   </ItemGroup>
