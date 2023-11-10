@@ -3,7 +3,7 @@
 | Build | Status | 
 |---|---|
 | CI (last changed branch) |[![Build Status](https://applimit.visualstudio.com/CoreHelpers/_apis/build/status/AzureStorageTableBackup/AzureStorageTableBackup-CI)](https://applimit.visualstudio.com/CoreHelpers/_build/latest?definitionId=28) |
-| CD (push to Docker) | [![Build Status](https://applimit.visualstudio.com/CoreHelpers/_apis/build/status/AzureStorageTableBackup/AzureStorageTableBackup-CD)](https://applimit.visualstudio.com/CoreHelpers/_build/latest?definitionId=29) |
+| CD (push to Docker) | [![Publish Container](https://github.com/CoreHelpers/AzureStorageTableBackup/actions/workflows/publish.yml/badge.svg)](https://github.com/CoreHelpers/AzureStorageTableBackup/actions/workflows/publish.yml) |
 | DockerHub | https://hub.docker.com/r/corehelpers/azurebackup/ |
 | Based On | https://github.com/CoreHelpers/AzureStorageTable |
 
