@@ -8,75 +8,74 @@
 | Based On | https://github.com/CoreHelpers/AzureStorageTable |
 
 # Execute Table Backup with the pre-compiled container
+The engine is manifest based so build a new manifest with the following structure and launch the docker container. 
+Multiple backups can be defined in one manifest file.
 
+```json
+{
+    "Id": "<<uuid>>",
+    "Items": [
+        {
+            "Id": "<<uuid>>",
+            "Name": "<<displayname>>",
+            "Enabled": true,
+
+            "Operation": "backup",
+            "StorageType": "table",
+
+            "TargetConnectionString": "<<ConnectionString where the backup should be stored>>",
+            "TargetContainer": "<<Container the backup should be stored>>",            
+
+            "SourceConnectionString": "<<ConnectionString where the data should be read from>>",
+
+            "Excludes": [
+                "<<Regex for tables to exclude>>"
+            ],
+
+            "FinishedHook": "<<Optional Finish Hook for monitoring>>"
+        }
+    ]
+}
+```
+
+The docker container can be launched as follows:
 ```
 docker run \
--e SRC_ACCOUNT_NAME={{YOUR ACCOUNT NAME}} \
--e SRC_ACCOUNT_KEY={{YOUR ACCOUNT KEY}} \
--e TGT_ACCOUNT_NAME={{YOUR ACCOUNT KEY}} \
--e TGT_ACCOUNT_KEY={{YOUR ACCOUNT KEY}} \
--e TGT_ACCOUNT_CONTAINER={{YOUR ACCOUNT CONTAINER}} \
-corehelpers/azurebackup
+-e MANIFEST={{FILE or URL to the manifest}}
+corehelpers/azurebackup:<<version>>
 ```
 
 # Execute Table Restore with the pre-compiled container
-```
-docker run \
--e MODE=Restore \
--e SRC_ACCOUNT_NAME={{YOUR ACCOUNT NAME}} \
--e SRC_ACCOUNT_KEY={{YOUR ACCOUNT KEY}} \
--e SRC_ACCOUNT_CONTAINER={{YOUR ACCOUNT CONTAINER}} \
--e SRC_BACKUP_ID={{YOUR BACKUP ID}} \
--e TGT_ACCOUNT_NAME={{YOUR ACCOUNT NAME}}  \
--e TGT_ACCOUNT_KEY={{YOUE ACCOUNT KEY}} \
-corehelpers/azurebackup
-```
-# Execute Blob Backup with the pre-compiled container
-```
-docker run \
--e STORAGE_TYPE=Blob \
--e SRC_ACCOUNT_NAME={{YOUR ACCOUNT NAME}} \
--e SRC_ACCOUNT_KEY={{YOUR ACCOUNT KEY}} \
--e TGT_ACCOUNT_NAME={{YOUR ACCOUNT KEY}} \
--e TGT_ACCOUNT_KEY={{YOUR ACCOUNT KEY}} \
--e TGT_ACCOUNT_CONTAINER={{YOUR ACCOUNT CONTAINER}} \
-corehelpers/azurebackup
+The engine is manifest based so build a new manifest with the following structure and launch the docker container.
+Multiple backups can be defined in one manifest file.
+
+```json
+{
+    "Id": "<<uuid>>",
+    "Items": [
+        {
+            "Id": "<<uuid>>",
+            "Name": "<<displayname>>",
+            "Enabled": true,
+
+            "Operation": "restore",
+            "StorageType": "table",
+
+            "SourceConnectionString": "<<ConnectionString where the backup is stored>>",
+            "SourceContainer": "<<Container the backup is stored>>",            
+
+            "TargetConnectionString": "<<ConnectionString where the data should be restored to>>",
+        }
+    ]
+}
 ```
 
-# Execute Blob Restore with the pre-compiled container
+The docker container can be launched as follows:
 ```
 docker run \
--e MODE=Restore \
--e STORAGE_TYPE=Blob \
--e SRC_ACCOUNT_NAME={{YOUR ACCOUNT NAME}} \
--e SRC_ACCOUNT_KEY={{YOUR ACCOUNT KEY}} \
--e SRC_ACCOUNT_CONTAINER={{YOUR ACCOUNT CONTAINER}} \
--e SRC_BACKUP_ID={{YOUR BACKUP ID}} \
--e TGT_ACCOUNT_NAME={{YOUR ACCOUNT NAME}}  \
--e TGT_ACCOUNT_KEY={{YOUE ACCOUNT KEY}} \
-corehelpers/azurebackup
+-e MANIFEST={{FILE or URL to the manifest}}
+corehelpers/azurebackup:<<version>>
 ```
-
-# Available Variables
-
-| Variable | Mandatory | Default | Description |
-|---|---|---|---|
-| MODE | No | Backup | Defines if the container runs in backup or restore mode |
-| STORAGE_TYPE | No | Table | Defines if the backup runs for blobs or tables |
-| COMPRESS | No | True | Defines if the blob data will be compressed before uploading again (table data will always be compressed). If False, server side copy is used. |
-| TRD_COUNT | No | 10 | ParallelOperationThreadCount: Gets or sets the number of blocks that may be simultaneously uploaded (blobs only).|
-| UPL_THRESHOLD | No | 32 MiB | SingleBlobUploadThresholdInBytes: Gets or sets the maximum size of a blob in bytes that may be uploaded as a single blob. Ignored if TRD_COUNT greater than 1 (blobs only).|
-| SRC_ACCOUNT_NAME | Yes | n/a | Defines the account where the system should backup or restore from |
-| SRC_ACCOUNT_KEY | Yes | n/a | Defines the storage account key |
-| SRC_ACCOUNT_CONTAINER | Yes when restore | n/a | Defines the container name the restore should load from |
-| SRC_BACKUP_ID | Yes when restore | n/a | Defines the backup id which is the file prefix generated during backup which is used for restore |
-| SRC_ACCOUNT_ENDPOINT_SUFFIX | No | empty | Allows to send endpoint suffixes for special Azure regions |
-| SRC_EXCLUDE_TABLES | No | empty | Allows to define tables which are excluded from backup |
-| SRC_EXCLUDE_BLOB_CONTAINER | No | empty | Allows to define blob containers which are excluded from backup |
-| TGT_ACCOUNT_NAME | Yes | n/a | Defines the account where the system should backup or restore to |
-| TGT_ACCOUNT_KEY | Yes | n/a | Defines the storage account key |
-| TGT_ACCOUNT_CONTAINER | Yes when backup | n/a | Defines the container name the backup should store to |
-| TGT_ACCOUNT_ENDPOINT_SUFFIX | No | empty | Allows to send endpoint suffixes for special Azure regiosn |
 
 # Build the backup container manually
 
