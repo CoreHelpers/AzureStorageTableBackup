@@ -30,13 +30,26 @@ foreach (var manifestItem in manifest.Items)
         continue;
     }
 
+    // execute the operation
     logger.LogInformation($"Processing task {manifestItem.Name} ({manifestItem.Id}) - {manifestItem.Operation} {manifestItem.Storage}");
-
     if (manifestItem.Operation == OperationType.Backup && manifestItem.Storage == StorageType.Table)
+    {
+        // backup 
         await TableBackupClient.BackupAsync(manifestItem, loggerFactory);
-    else if (manifestItem.Operation == OperationType.Restore && manifestItem.Storage == StorageType.Table)
+        
+        // trigger the finished hook if needed
+        if (!String.IsNullOrEmpty(manifestItem.FinishedHook)) 
+            await HookTrigger.TriggerHookAsync(manifestItem.FinishedHook);
+        
+    } else if (manifestItem.Operation == OperationType.Restore && manifestItem.Storage == StorageType.Table)
+    {
         await TableBackupClient.RestoreAsync(manifestItem, loggerFactory);
+    }
     else
+    {
         throw new InvalidOperationException(
-        $"Operation {manifestItem.Operation} or storage {manifestItem.Storage} is not supported");
+            $"Operation {manifestItem.Operation} or storage {manifestItem.Storage} is not supported");
+    }
+
+
 } 

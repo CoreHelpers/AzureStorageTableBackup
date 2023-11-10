@@ -38,4 +38,6 @@ public class ManifestItem
     public string SourcePath { get; set; } = string.Empty;
     
     public List<string> Excludes { get; set; } = new List<string>();
+    
+    public string FinishedHook { get; set; } = string.Empty;
 }
